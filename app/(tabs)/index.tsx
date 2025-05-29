@@ -1,4 +1,3 @@
-// ✅ iOS Touch Fixes Added
 import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
@@ -78,14 +77,28 @@ export default function MapScreen() {
 
   const handleAddPickup = () => {
     if (Platform.OS !== 'web') {
-      setMapMarkerMode('pickup');
+      setMapMarkerMode(prevMode => prevMode === 'pickup' ? 'none' : 'pickup');
     }
   };
 
   const handleAddAlert = () => {
     if (Platform.OS !== 'web') {
-      setMapMarkerMode('alert');
+      setMapMarkerMode(prevMode => prevMode === 'alert' ? 'none' : 'alert');
     }
+  };
+
+  const getPickupButtonText = () => {
+    if (mapMarkerMode === 'pickup') {
+      return 'Cancel Pickup';
+    }
+    return pickupLocation ? 'Change Pickup' : 'Add Pickup';
+  };
+
+  const getAlertButtonText = () => {
+    if (mapMarkerMode === 'alert') {
+      return 'Cancel Alert';
+    }
+    return alertLocation ? 'Change Alert' : 'Set Alert';
   };
 
   const renderVanMarkers = () => {
@@ -215,7 +228,7 @@ export default function MapScreen() {
                     mapMarkerMode === 'pickup' && styles.actionButtonTextActive
                   ]}
                 >
-                  Add Pickup
+                  {getPickupButtonText()}
                 </Text>
               </Pressable>
               <Pressable
@@ -233,7 +246,7 @@ export default function MapScreen() {
                     mapMarkerMode === 'alert' && styles.actionButtonTextActive
                   ]}
                 >
-                  Set Alert
+                  {getAlertButtonText()}
                 </Text>
               </Pressable>
             </View>
