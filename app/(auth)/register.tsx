@@ -35,14 +35,16 @@ export default function RegisterScreen() {
         .database()
         .ref('institutes')
         .orderByChild('name')
-        .startAt(institute)
-        .endAt(institute + '\uf8ff')
-        .limitToFirst(5)
         .once('value');
 
       const data = snapshot.val();
       if (data) {
-        const instituteNames = Object.values(data).map((inst: any) => inst.name);
+        const searchTerm = institute.toLowerCase();
+        const instituteNames = Object.values(data)
+          .map((inst: any) => inst.name)
+          .filter((name: string) => 
+            name.toLowerCase().includes(searchTerm)
+          );
         setSuggestions(instituteNames);
         setShowSuggestions(true);
       } else {
