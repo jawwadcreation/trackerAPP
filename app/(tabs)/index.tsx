@@ -1,44 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  StyleSheet,
-  View,
-  Text,
-  Dimensions,
-  Platform,
-  Keyboard,
-  TouchableWithoutFeedback,
-  Pressable
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  MapPin,
-  Navigation,
-  CircleAlert as AlertCircle,
-  Truck
-} from 'lucide-react-native';
-import { useLocation } from '@/hooks/useLocation';
-import VehicleSelector from '@/components/VehicleSelector';
-import BottomSheet from '@/components/BottomSheet';
-
-const { width, height } = Dimensions.get('window');
-const ASPECT_RATIO = width / height;
-const LATITUDE_DELTA = 0.0922;
-const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
-
-let MapView: any;
-let Marker: any;
-let PROVIDER_GOOGLE: any;
-
-if (Platform.OS !== 'web') {
-  const Maps = require('react-native-maps');
-  MapView = Maps.default;
-  Marker = Maps.Marker;
-  PROVIDER_GOOGLE = Maps.PROVIDER_GOOGLE;
-}
-
-export default function MapScreen() {
-  const [selectedVan, setSelectedVan] = useState<string | null>(null);
-  const [pickupLocation, setPickupLocation] = useState<any>(null);
+);
   const [alertLocation, setAlertLocation] = useState<any>(null);
   const [mapMarkerMode, setMapMarkerMode] = useState<'none' | 'pickup' | 'alert'>('none');
   const mapRef = useRef<any>(null);
