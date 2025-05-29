@@ -1,4 +1,3 @@
-// LocationContext.tsx
 import React, { createContext, useState, useEffect } from 'react';
 import * as Location from 'expo-location';
 import { firebase } from '@/services/firebase';
@@ -40,7 +39,29 @@ export const LocationContext = createContext<LocationContextData>({} as Location
 
 export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [userLocation, setUserLocation] = useState<LocationData | null>(null);
-  const [vanLocations, setVanLocations] = useState<VanLocations | null>(null);
+  const [vanLocations, setVanLocations] = useState<VanLocations | null>({
+    'van-001': {
+      latitude: 24.8607,
+      longitude: 67.0011,
+      speed: 45,
+      heading: 90,
+      lastUpdated: Date.now()
+    },
+    'van-002': {
+      latitude: 24.8707,
+      longitude: 67.0111,
+      speed: 30,
+      heading: 180,
+      lastUpdated: Date.now()
+    },
+    'van-003': {
+      latitude: 24.8507,
+      longitude: 67.0211,
+      speed: 0,
+      heading: 270,
+      lastUpdated: Date.now()
+    }
+  });
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,8 +84,8 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
           acc[key] = {
             latitude: item.latitude,
             longitude: item.longitude,
-            speed: 0,
-            heading: 0,
+            speed: item.speed || 0,
+            heading: item.heading || 0,
             lastUpdated: Date.now()
           };
           return acc;
