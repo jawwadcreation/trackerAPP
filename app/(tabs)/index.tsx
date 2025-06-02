@@ -1,7 +1,29 @@
-);
+import React, { useRef, useState, useEffect } from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  Pressable,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { AlertCircle, MapPin, Navigation, Truck } from 'lucide-react-native';
+import { useLocation } from '@/hooks/useLocation';
+import BottomSheet from '@/components/BottomSheet';
+import VehicleSelector from '@/components/VehicleSelector';
+
+const LATITUDE_DELTA = 0.0922;
+const LONGITUDE_DELTA = 0.0421;
+
+export default function MapScreen() {
+  const [selectedVan, setSelectedVan] = useState<string | null>(null);
+  const [pickupLocation, setPickupLocation] = useState<any>(null);
   const [alertLocation, setAlertLocation] = useState<any>(null);
   const [mapMarkerMode, setMapMarkerMode] = useState<'none' | 'pickup' | 'alert'>('none');
-  const mapRef = useRef<any>(null);
+  const mapRef = useRef<MapView>(null);
   const bottomSheetRef = useRef(null);
 
   const {
@@ -26,6 +48,7 @@
   const handleMapPress = (event: any) => {
     if (Platform.OS === 'web') return;
     const { coordinate } = event.nativeEvent;
+    
     if (mapMarkerMode === 'pickup') {
       setPickupLocation(coordinate);
       setMapMarkerMode('none');
@@ -47,22 +70,20 @@
     }
   };
 
-  const getPickupButtonText = () => {
-    if (mapMarkerMode === 'pickup') {
-      return 'Cancel Pickup';
+  const handleMyLocation = () => {
+    if (userLocation && mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+        latitudeDelta: LATITUDE_DELTA,
+        longitudeDelta: LONGITUDE_DELTA
+      });
     }
-    return pickupLocation ? 'Change Pickup' : 'Add Pickup';
-  };
-
-  const getAlertButtonText = () => {
-    if (mapMarkerMode === 'alert') {
-      return 'Cancel Alert';
-    }
-    return alertLocation ? 'Change Alert' : 'Set Alert';
   };
 
   const renderVanMarkers = () => {
     if (Platform.OS === 'web' || !vanLocations || !selectedVan) return null;
+    
     const van = vanLocations[selectedVan];
     if (!van) return null;
 
@@ -72,7 +93,7 @@
           latitude: van.latitude,
           longitude: van.longitude
         }}
-        title={`${selectedVan}`}
+        title={`Van ${selectedVan.replace('van-', '')}`}
         description={`Speed: ${van.speed || 0} km/h`}
       >
         <View style={styles.vanMarkerContainer}>
@@ -86,8 +107,8 @@
     if (Platform.OS === 'web') {
       return (
         <View style={styles.webMapPlaceholder}>
-          <Text style={styles.webMapText}>Map view is not available on web platform.</Text>
-          <Text style={styles.webMapSubText}>Please use the mobile app for full functionality.</Text>
+          <Text style={styles.webMapText}>Map view is not available on web platform</Text>
+          <Text style={styles.webMapSubText}>Please use the mobile app for full functionality</Text>
         </View>
       );
     }
@@ -98,29 +119,33 @@
         style={styles.map}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         showsUserLocation
-        showsMyLocationButton
+        showsMyLocationButton={false}
         onPress={handleMapPress}
-        initialRegion={
-          userLocation
-            ? {
-                latitude: userLocation.latitude,
-                longitude: userLocation.longitude,
-                latitudeDelta: LATITUDE_DELTA,
-                longitudeDelta: LONGITUDE_DELTA
-              }
-            : undefined
-        }
+        initialRegion={userLocation ? {
+          latitude: userLocation.latitude,
+          longitude: userLocation.longitude,
+          latitudeDelta: LATITUDE_DELTA,
+          longitudeDelta: LONGITUDE_DELTA
+        } : undefined}
       >
         {renderVanMarkers()}
+        
         {pickupLocation && (
-          <Marker coordinate={pickupLocation} title="Pickup Location" pinColor="#00C853">
+          <Marker 
+            coordinate={pickupLocation}
+            title="Pickup Location"
+          >
             <View style={[styles.markerContainer, styles.pickupMarker]}>
               <MapPin size={24} color="#FFFFFF" />
             </View>
           </Marker>
         )}
+        
         {alertLocation && (
-          <Marker coordinate={alertLocation} title="Alert Location" pinColor="#FF9800">
+          <Marker 
+            coordinate={alertLocation}
+            title="Alert Location"
+          >
             <View style={[styles.markerContainer, styles.alertMarker]}>
               <AlertCircle size={24} color="#FFFFFF" />
             </View>
@@ -135,6 +160,7 @@
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.mapContainer}>
           {renderMap()}
+          
           {mapMarkerMode !== 'none' && Platform.OS !== 'web' && (
             <View style={styles.markerInstructionContainer}>
               <Text style={styles.markerInstructionText}>
@@ -142,20 +168,12 @@
               </Text>
             </View>
           )}
+          
           {Platform.OS !== 'web' && (
             <View style={styles.mapControls}>
               <Pressable
                 style={styles.myLocationButton}
-                onPress={() => {
-                  if (userLocation && mapRef.current) {
-                    mapRef.current.animateToRegion({
-                      latitude: userLocation.latitude,
-                      longitude: userLocation.longitude,
-                      latitudeDelta: LATITUDE_DELTA,
-                      longitudeDelta: LONGITUDE_DELTA
-                    });
-                  }
-                }}
+                onPress={handleMyLocation}
               >
                 <Navigation size={24} color="#3366FF" />
               </Pressable>
@@ -167,11 +185,13 @@
           <View style={styles.bottomSheetContent}>
             <View style={styles.bottomSheetHandle} />
             <Text style={styles.bottomSheetTitle}>Track Vehicle</Text>
+            
             <VehicleSelector
               selectedVan={selectedVan}
               onSelectVan={setSelectedVan}
               vanLocations={vanLocations}
             />
+            
             <View style={styles.actionsContainer}>
               <Pressable
                 style={[
@@ -181,16 +201,20 @@
                 onPress={handleAddPickup}
                 disabled={Platform.OS === 'web'}
               >
-                <MapPin size={20} color={mapMarkerMode === 'pickup' ? '#FFFFFF' : '#00C853'} />
+                <MapPin 
+                  size={20} 
+                  color={mapMarkerMode === 'pickup' ? '#FFFFFF' : '#00C853'} 
+                />
                 <Text
                   style={[
                     styles.actionButtonText,
                     mapMarkerMode === 'pickup' && styles.actionButtonTextActive
                   ]}
                 >
-                  {getPickupButtonText()}
+                  {pickupLocation ? 'Change Pickup' : 'Add Pickup'}
                 </Text>
               </Pressable>
+              
               <Pressable
                 style={[
                   styles.actionButton,
@@ -199,17 +223,21 @@
                 onPress={handleAddAlert}
                 disabled={Platform.OS === 'web'}
               >
-                <AlertCircle size={20} color={mapMarkerMode === 'alert' ? '#FFFFFF' : '#FF9800'} />
+                <AlertCircle 
+                  size={20} 
+                  color={mapMarkerMode === 'alert' ? '#FFFFFF' : '#FF9800'} 
+                />
                 <Text
                   style={[
                     styles.actionButtonText,
                     mapMarkerMode === 'alert' && styles.actionButtonTextActive
                   ]}
                 >
-                  {getAlertButtonText()}
+                  {alertLocation ? 'Change Alert' : 'Set Alert'}
                 </Text>
               </Pressable>
             </View>
+            
             <Pressable
               style={[
                 styles.trackingButton,
@@ -234,21 +262,37 @@
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  mapContainer: { flex: 1 },
-  map: { ...StyleSheet.absoluteFillObject },
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  mapContainer: {
+    flex: 1,
+  },
+  map: {
+    ...StyleSheet.absoluteFillObject,
+  },
   webMapPlaceholder: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5'
+    backgroundColor: '#F5F5F5',
   },
-  webMapText: { fontSize: 18, color: '#333333', marginBottom: 8 },
-  webMapSubText: { fontSize: 14, color: '#666666' },
+  webMapText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 18,
+    color: '#333333',
+    marginBottom: 8,
+  },
+  webMapSubText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 14,
+    color: '#666666',
+  },
   mapControls: {
     position: 'absolute',
     right: 16,
-    bottom: 200
+    bottom: 200,
   },
   myLocationButton: {
     backgroundColor: '#FFFFFF',
@@ -257,93 +301,114 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
-    elevation: 5
+    elevation: 5,
   },
   markerInstructionContainer: {
     position: 'absolute',
     top: 16,
-    left: 0,
-    right: 0,
-    alignItems: 'center'
+    left: 16,
+    right: 16,
+    alignItems: 'center',
   },
   markerInstructionText: {
+    fontFamily: 'Inter-Medium',
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     color: '#FFFFFF',
-    padding: 8,
+    padding: 12,
     borderRadius: 8,
-    fontSize: 14
+    fontSize: 14,
   },
   vanMarkerContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 4
+    padding: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
   },
   markerContainer: {
-    backgroundColor: '#3366FF',
-    padding: 6,
-    borderRadius: 20
+    padding: 8,
+    borderRadius: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  pickupMarker: { backgroundColor: '#00C853' },
-  alertMarker: { backgroundColor: '#FF9800' },
+  pickupMarker: {
+    backgroundColor: '#00C853',
+  },
+  alertMarker: {
+    backgroundColor: '#FF9800',
+  },
   bottomSheetContent: {
-    padding: 16
+    padding: 16,
   },
   bottomSheetHandle: {
     width: 40,
     height: 4,
-    backgroundColor: '#CCC',
+    backgroundColor: '#CCCCCC',
     borderRadius: 2,
     alignSelf: 'center',
-    marginBottom: 10
+    marginBottom: 16,
   },
   bottomSheetTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16
+    fontFamily: 'Inter-Bold',
+    fontSize: 20,
+    color: '#333333',
+    marginBottom: 16,
   },
   actionsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginVertical: 12
+    marginVertical: 16,
+    gap: 12,
   },
   actionButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#CCC',
+    borderColor: '#E5E5E5',
     borderRadius: 8,
-    padding: 10,
-    flex: 1,
-    marginHorizontal: 4
+    padding: 12,
+    gap: 8,
   },
   actionButtonActive: {
-    backgroundColor: '#3366FF'
+    backgroundColor: '#3366FF',
+    borderColor: '#3366FF',
   },
   actionButtonText: {
-    marginLeft: 8,
-    color: '#333'
+    fontFamily: 'Inter-Medium',
+    fontSize: 14,
+    color: '#333333',
   },
   actionButtonTextActive: {
-    color: '#FFFFFF'
+    color: '#FFFFFF',
   },
   trackingButton: {
     backgroundColor: '#F5F5F5',
-    padding: 14,
+    padding: 16,
     borderRadius: 8,
-    alignItems: 'center'
+    alignItems: 'center',
+    marginTop: 8,
   },
   trackingButtonActive: {
-    backgroundColor: '#3366FF'
+    backgroundColor: '#3366FF',
   },
   trackingButtonText: {
+    fontFamily: 'Inter-Bold',
     fontSize: 16,
-    color: '#333'
+    color: '#333333',
   },
   trackingButtonTextActive: {
-    color: '#FFF'
-  }
+    color: '#FFFFFF',
+  },
 });
