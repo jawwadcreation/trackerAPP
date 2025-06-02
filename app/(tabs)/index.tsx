@@ -34,8 +34,31 @@ export default function MapScreen() {
     isLoading
   } = useLocation();
 
+  // Set initial van when locations are loaded
   useEffect(() => {
-    if (Platform.OS !== 'web' && userLocation && mapRef.current) {
+    if (vanLocations && !selectedVan) {
+      const firstVanId = Object.keys(vanLocations)[0];
+      setSelectedVan(firstVanId);
+    }
+  }, [vanLocations]);
+
+  // Center map on selected van
+  useEffect(() => {
+    if (Platform.OS !== 'web' && selectedVan && vanLocations && mapRef.current) {
+      const van = vanLocations[selectedVan];
+      if (van) {
+        mapRef.current.animateToRegion({
+          latitude: van.latitude,
+          longitude: van.longitude,
+          latitudeDelta: LATITUDE_DELTA,
+          longitudeDelta: LONGITUDE_DELTA
+        });
+      }
+    }
+  }, [selectedVan, vanLocations]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' && userLocation && mapRef.current && !selectedVan) {
       mapRef.current.animateToRegion({
         latitude: userLocation.latitude,
         longitude: userLocation.longitude,
@@ -113,6 +136,18 @@ export default function MapScreen() {
       );
     }
 
+    const initialRegion = selectedVan && vanLocations?.[selectedVan] ? {
+      latitude: vanLocations[selectedVan].latitude,
+      longitude: vanLocations[selectedVan].longitude,
+      latitudeDelta: LATITUDE_DELTA,
+      longitudeDelta: LONGITUDE_DELTA
+    } : userLocation ? {
+      latitude: userLocation.latitude,
+      longitude: userLocation.longitude,
+      latitudeDelta: LATITUDE_DELTA,
+      longitudeDelta: LONGITUDE_DELTA
+    } : undefined;
+
     return (
       <MapView
         ref={mapRef}
@@ -121,12 +156,7 @@ export default function MapScreen() {
         showsUserLocation
         showsMyLocationButton={false}
         onPress={handleMapPress}
-        initialRegion={userLocation ? {
-          latitude: userLocation.latitude,
-          longitude: userLocation.longitude,
-          latitudeDelta: LATITUDE_DELTA,
-          longitudeDelta: LONGITUDE_DELTA
-        } : undefined}
+        initialRegion={initialRegion}
       >
         {renderVanMarkers()}
         
