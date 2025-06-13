@@ -61,7 +61,8 @@ export default function MapScreen() {
   };
 
   const renderVanMarkers = () => {
-    if (Platform.OS === 'web' || !vanLocations || !selectedVan) return null;
+    // Remove platform check - render markers on all platforms
+    if (!vanLocations || !selectedVan) return null;
     
     const van = vanLocations[selectedVan];
     if (!van) return null;
