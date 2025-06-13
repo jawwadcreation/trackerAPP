@@ -1,4 +1,42 @@
-cationPermissionRequest = async () => {
+import React, { useState, useEffect, useRef } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, Modal, FlatList, Platform, Pressable, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { MapPin, Navigation, Truck, Check } from 'lucide-react-native';
+import { useLocation } from '@/hooks/useLocation';
+
+const LATITUDE_DELTA = 0.01;
+const LONGITUDE_DELTA = 0.01;
+
+export default function MapScreen() {
+  const { userLocation, vanLocations, hasLocationPermission, toggleLocationPermission } = useLocation();
+  const [selectedVan, setSelectedVan] = useState<string | null>(null);
+  const [showLocationPermission, setShowLocationPermission] = useState(false);
+  const [showVanSelection, setShowVanSelection] = useState(false);
+  const mapRef = useRef<MapView>(null);
+
+  useEffect(() => {
+    if (!hasLocationPermission) {
+      setShowLocationPermission(true);
+    } else if (!selectedVan) {
+      setShowVanSelection(true);
+    }
+  }, [hasLocationPermission, selectedVan]);
+
+  // Center map on selected van when it changes
+  useEffect(() => {
+    if (selectedVan && vanLocations?.[selectedVan] && mapRef.current) {
+      const van = vanLocations[selectedVan];
+      mapRef.current.animateToRegion({
+        latitude: van.latitude,
+        longitude: van.longitude,
+        latitudeDelta: LATITUDE_DELTA,
+        longitudeDelta: LONGITUDE_DELTA
+      }, 1000);
+    }
+  }, [selectedVan, vanLocations]);
+
+  const handleLocationPermissionRequest = async () => {
     await toggleLocationPermission();
     setShowLocationPermission(false);
     if (!selectedVan) {
@@ -54,17 +92,18 @@ cationPermissionRequest = async () => {
       );
     }
 
-    const initialRegion = selectedVan && vanLocations?.[selectedVan] ? {
-      latitude: vanLocations[selectedVan].latitude,
-      longitude: vanLocations[selectedVan].longitude,
-      latitudeDelta: LATITUDE_DELTA,
-      longitudeDelta: LONGITUDE_DELTA
-    } : userLocation ? {
+    // Set initial region based on user location or default
+    const initialRegion = userLocation ? {
       latitude: userLocation.latitude,
       longitude: userLocation.longitude,
       latitudeDelta: LATITUDE_DELTA,
       longitudeDelta: LONGITUDE_DELTA
-    } : undefined;
+    } : {
+      latitude: 24.8607,
+      longitude: 67.0011,
+      latitudeDelta: LATITUDE_DELTA,
+      longitudeDelta: LONGITUDE_DELTA
+    };
 
     return (
       <MapView
