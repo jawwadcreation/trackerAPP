@@ -1,18 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Modal, FlatList, Platform, Pressable, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Modal, FlatList, Platform, Pressable, TouchableWithoutFeedback, Keyboard, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { MapPin, Navigation, Truck, Check } from 'lucide-react-native';
+import { MapPin, Navigation, Truck, Check, Plus, X } from 'lucide-react-native';
 import { useLocation } from '@/hooks/useLocation';
 
 const LATITUDE_DELTA = 0.01;
 const LONGITUDE_DELTA = 0.01;
+
+interface PickupPoint {
+  id: string;
+  latitude: number;
+  longitude: number;
+  title: string;
+}
 
 export default function MapScreen() {
   const { userLocation, vanLocations, hasLocationPermission, toggleLocationPermission } = useLocation();
   const [selectedVan, setSelectedVan] = useState<string | null>(null);
   const [showLocationPermission, setShowLocationPermission] = useState(false);
   const [showVanSelection, setShowVanSelection] = useState(false);
+  const [pickupPoints, setPickupPoints] = useState<PickupPoint[]>([]);
+  const [isAddingPickupPoint, setIsAddingPickupPoint] = useState(false);
   const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
@@ -59,6 +68,81 @@ export default function MapScreen() {
     }
   };
 
+  const handleMapPress = (event: any) => {
+    if (!isAddingPickupPoint) return;
+
+    const { coordinate } = event.nativeEvent;
+    const newPickupPoint: PickupPoint = {
+      id: `pickup-${Date.now()}`,
+      latitude: coordinate.latitude,
+      longitude: coordinate.longitude,
+      title: `Pickup Point ${pickupPoints.length + 1}`,
+    };
+
+    setPickupPoints(prev => [...prev, newPickupPoint]);
+    setIsAddingPickupPoint(false);
+  };
+
+  const removePickupPoint = (pointId: string) => {
+    Alert.alert(
+      'Remove Pickup Point',
+      'Are you sure you want to remove this pickup point?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            setPickupPoints(prev => prev.filter(point => point.id !== pointId));
+          },
+        },
+      ]
+    );
+  };
+
+  const toggleAddPickupPoint = () => {
+    setIsAddingPickupPoint(!isAddingPickupPoint);
+  };
+
+  const renderVanMarkers = () => {
+    if (!vanLocations || !selectedVan) return null;
+
+    const van = vanLocations[selectedVan];
+    return (
+      <Marker
+        key={selectedVan}
+        coordinate={{
+          latitude: van.latitude,
+          longitude: van.longitude,
+        }}
+        title={`Van ${selectedVan.replace('van-', '')}`}
+        description={`Speed: ${van.speed || 0} km/h`}
+      >
+        <View style={styles.vanMarkerContainer}>
+          <Truck size={24} color="#3366FF" />
+        </View>
+      </Marker>
+    );
+  };
+
+  const renderPickupPointMarkers = () => {
+    return pickupPoints.map((point) => (
+      <Marker
+        key={point.id}
+        coordinate={{
+          latitude: point.latitude,
+          longitude: point.longitude,
+        }}
+        title={point.title}
+        onCalloutPress={() => removePickupPoint(point.id)}
+      >
+        <View style={styles.pickupMarkerContainer}>
+          <MapPin size={20} color="#FF6B35" />
+        </View>
+      </Marker>
+    ));
+  };
+
   const renderMap = () => {
     const initialRegion = userLocation
       ? {
@@ -87,21 +171,10 @@ export default function MapScreen() {
         showsUserLocation
         showsMyLocationButton={false}
         initialRegion={initialRegion}
+        onPress={handleMapPress}
       >
-        {selectedVan && vanLocations?.[selectedVan] && (
-          <Marker
-            coordinate={{
-              latitude: vanLocations[selectedVan].latitude,
-              longitude: vanLocations[selectedVan].longitude,
-            }}
-            title={`Van ${selectedVan.replace('van-', '')}`}
-            description={`Speed: ${vanLocations[selectedVan].speed || 0} km/h`}
-          >
-            <View style={styles.vanMarkerContainer}>
-              <Truck size={24} color="#3366FF" />
-            </View>
-          </Marker>
-        )}
+        {renderVanMarkers()}
+        {renderPickupPointMarkers()}
       </MapView>
     );
   };
@@ -174,16 +247,46 @@ export default function MapScreen() {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Pickup Points Info Bar */}
+        {selectedVan && (
+          <View style={styles.infoBar}>
+            <Text style={styles.infoText}>
+              {pickupPoints.length} pickup point{pickupPoints.length !== 1 ? 's' : ''} added
+            </Text>
+            {isAddingPickupPoint && (
+              <Text style={styles.instructionText}>Tap on map to add pickup point</Text>
+            )}
+          </View>
+        )}
+
         <View style={styles.mapContainer}>
           {renderMap()}
-          {Platform.OS !== 'web' && hasLocationPermission && (
+          
+          {/* Map Controls */}
+          {Platform.OS !== 'web' && hasLocationPermission && selectedVan && (
             <View style={styles.mapControls}>
               <Pressable style={styles.myLocationButton} onPress={handleMyLocation}>
                 <Navigation size={24} color="#3366FF" />
               </Pressable>
+              
+              <Pressable 
+                style={[
+                  styles.addPickupButton,
+                  isAddingPickupPoint && styles.addPickupButtonActive
+                ]} 
+                onPress={toggleAddPickupPoint}
+              >
+                {isAddingPickupPoint ? (
+                  <X size={24} color="#FFFFFF" />
+                ) : (
+                  <Plus size={24} color="#FFFFFF" />
+                )}
+              </Pressable>
             </View>
           )}
         </View>
+
         {renderLocationPermissionModal()}
         {renderVanSelectionModal()}
       </SafeAreaView>
@@ -191,7 +294,6 @@ export default function MapScreen() {
   );
 }
 
-// Styles remain unchanged
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -222,6 +324,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#3366FF',
   },
+  infoBar: {
+    backgroundColor: '#F8F9FA',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+  },
+  infoText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 14,
+    color: '#333333',
+  },
+  instructionText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 12,
+    color: '#FF6B35',
+    marginTop: 2,
+  },
   mapContainer: {
     flex: 1,
   },
@@ -249,6 +369,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 16,
     bottom: 16,
+    gap: 12,
   },
   myLocationButton: {
     backgroundColor: '#FFFFFF',
@@ -263,10 +384,38 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
+  addPickupButton: {
+    backgroundColor: '#FF6B35',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  addPickupButtonActive: {
+    backgroundColor: '#E55A2B',
+  },
   vanMarkerContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  pickupMarkerContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 15,
+    padding: 6,
+    borderWidth: 2,
+    borderColor: '#FF6B35',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
