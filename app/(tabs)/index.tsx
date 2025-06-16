@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Modal, FlatList, Platform, Pressable, TouchableWithoutFeedback, Keyboard, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { MapPin, Navigation, Truck, Check, Plus, X } from 'lucide-react-native';
+import { MapPin, Navigation, Truck, Check, Plus, X, Edit3, Trash2 } from 'lucide-react-native';
 import { useLocation } from '@/hooks/useLocation';
 
 const LATITUDE_DELTA = 0.01;
@@ -22,6 +22,8 @@ export default function MapScreen() {
   const [showVanSelection, setShowVanSelection] = useState(false);
   const [pickupPoints, setPickupPoints] = useState<PickupPoint[]>([]);
   const [isAddingPickupPoint, setIsAddingPickupPoint] = useState(false);
+  const [selectedPickupPoint, setSelectedPickupPoint] = useState<string | null>(null);
+  const [showPickupPointActions, setShowPickupPointActions] = useState(false);
   const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
@@ -83,21 +85,24 @@ export default function MapScreen() {
     setIsAddingPickupPoint(false);
   };
 
+  const handlePickupPointPress = (pointId: string) => {
+    setSelectedPickupPoint(pointId);
+    setShowPickupPointActions(true);
+  };
+
   const removePickupPoint = (pointId: string) => {
-    Alert.alert(
-      'Remove Pickup Point',
-      'Are you sure you want to remove this pickup point?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => {
-            setPickupPoints(prev => prev.filter(point => point.id !== pointId));
-          },
-        },
-      ]
-    );
+    setPickupPoints(prev => prev.filter(point => point.id !== pointId));
+    setShowPickupPointActions(false);
+    setSelectedPickupPoint(null);
+  };
+
+  const changePickupPointLocation = (pointId: string) => {
+    setShowPickupPointActions(false);
+    setSelectedPickupPoint(null);
+    setIsAddingPickupPoint(true);
+    
+    // Remove the old pickup point and let user add a new one
+    setPickupPoints(prev => prev.filter(point => point.id !== pointId));
   };
 
   const toggleAddPickupPoint = () => {
@@ -134,7 +139,7 @@ export default function MapScreen() {
           longitude: point.longitude,
         }}
         title={point.title}
-        onCalloutPress={() => removePickupPoint(point.id)}
+        onPress={() => handlePickupPointPress(point.id)}
       >
         <View style={styles.pickupMarkerContainer}>
           <MapPin size={20} color="#FF6B35" />
@@ -236,6 +241,52 @@ export default function MapScreen() {
     </Modal>
   );
 
+  const renderPickupPointActionsModal = () => {
+    const selectedPoint = pickupPoints.find(point => point.id === selectedPickupPoint);
+    if (!selectedPoint) return null;
+
+    return (
+      <Modal visible={showPickupPointActions} animationType="slide" transparent>
+        <View style={styles.actionOverlay}>
+          <View style={styles.actionModal}>
+            <View style={styles.actionHeader}>
+              <Text style={styles.actionTitle}>{selectedPoint.title}</Text>
+              <Text style={styles.actionSubtitle}>What would you like to do?</Text>
+            </View>
+            
+            <View style={styles.actionButtons}>
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.changeLocationButton]} 
+                onPress={() => changePickupPointLocation(selectedPoint.id)}
+              >
+                <Edit3 size={20} color="#3366FF" />
+                <Text style={styles.changeLocationButtonText}>Change Location</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.removeButton]} 
+                onPress={() => removePickupPoint(selectedPoint.id)}
+              >
+                <Trash2 size={20} color="#FF3B30" />
+                <Text style={styles.removeButtonText}>Remove Point</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <TouchableOpacity 
+              style={styles.cancelButton} 
+              onPress={() => {
+                setShowPickupPointActions(false);
+                setSelectedPickupPoint(null);
+              }}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -289,6 +340,7 @@ export default function MapScreen() {
 
         {renderLocationPermissionModal()}
         {renderVanSelectionModal()}
+        {renderPickupPointActionsModal()}
       </SafeAreaView>
     </TouchableWithoutFeedback>
   );
@@ -511,5 +563,70 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#EEEEEE',
     marginHorizontal: 16,
+  },
+  actionOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  actionModal: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  actionHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  actionTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter-Bold',
+    color: '#333333',
+    marginBottom: 4,
+  },
+  actionSubtitle: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#666666',
+  },
+  actionButtons: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    justifyContent: 'center',
+  },
+  changeLocationButton: {
+    backgroundColor: '#F0F4FF',
+  },
+  changeLocationButtonText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 16,
+    color: '#3366FF',
+    marginLeft: 8,
+  },
+  removeButton: {
+    backgroundColor: '#FFF5F5',
+  },
+  removeButtonText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 16,
+    color: '#FF3B30',
+    marginLeft: 8,
+  },
+  cancelButton: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 16,
+    color: '#666666',
   },
 });
