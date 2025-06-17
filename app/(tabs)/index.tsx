@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Modal, FlatList, Platform, Pressable, TouchableWithoutFeedback, Keyboard, Alert } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Modal, FlatList, Platform, Pressable, TouchableWithoutFeedback, Keyboard, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { MapPin, Navigation, Truck, Check, Plus, X, Edit3, Trash2 } from 'lucide-react-native';
+import { MapPin, Navigation, Truck, Check, Plus, X, Edit3, Trash2, Target } from 'lucide-react-native';
 import { useLocation } from '@/hooks/useLocation';
 
 const LATITUDE_DELTA = 0.01;
@@ -13,6 +13,7 @@ interface PickupPoint {
   latitude: number;
   longitude: number;
   title: string;
+  address?: string;
 }
 
 export default function MapScreen() {
@@ -24,7 +25,13 @@ export default function MapScreen() {
   const [isAddingPickupPoint, setIsAddingPickupPoint] = useState(false);
   const [selectedPickupPoint, setSelectedPickupPoint] = useState<string | null>(null);
   const [showPickupPointActions, setShowPickupPointActions] = useState(false);
+  const [mapCenter, setMapCenter] = useState({
+    latitude: 24.8607,
+    longitude: 67.0011,
+  });
+  const [isMapMoving, setIsMapMoving] = useState(false);
   const mapRef = useRef<MapView>(null);
+  const pinAnimatedValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!hasLocationPermission) {
@@ -45,6 +52,15 @@ export default function MapScreen() {
       }, 1000);
     }
   }, [selectedVan, vanLocations]);
+
+  // Animate pin when map is moving
+  useEffect(() => {
+    Animated.timing(pinAnimatedValue, {
+      toValue: isMapMoving ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [isMapMoving]);
 
   const handleLocationPermissionRequest = async () => {
     await toggleLocationPermission();
@@ -70,15 +86,29 @@ export default function MapScreen() {
     }
   };
 
-  const handleMapPress = (event: any) => {
-    if (!isAddingPickupPoint) return;
+  const handleMapRegionChangeStart = () => {
+    if (isAddingPickupPoint) {
+      setIsMapMoving(true);
+    }
+  };
 
-    const { coordinate } = event.nativeEvent;
+  const handleMapRegionChangeComplete = (region: any) => {
+    if (isAddingPickupPoint) {
+      setMapCenter({
+        latitude: region.latitude,
+        longitude: region.longitude,
+      });
+      setIsMapMoving(false);
+    }
+  };
+
+  const confirmPickupLocation = () => {
     const newPickupPoint: PickupPoint = {
       id: `pickup-${Date.now()}`,
-      latitude: coordinate.latitude,
-      longitude: coordinate.longitude,
+      latitude: mapCenter.latitude,
+      longitude: mapCenter.longitude,
       title: `Pickup Point ${pickupPoints.length + 1}`,
+      address: `${mapCenter.latitude.toFixed(4)}, ${mapCenter.longitude.toFixed(4)}`,
     };
 
     setPickupPoints(prev => [...prev, newPickupPoint]);
@@ -99,14 +129,23 @@ export default function MapScreen() {
   const changePickupPointLocation = (pointId: string) => {
     setShowPickupPointActions(false);
     setSelectedPickupPoint(null);
-    setIsAddingPickupPoint(true);
     
-    // Remove the old pickup point and let user add a new one
+    // Remove the old pickup point and enter location selection mode
     setPickupPoints(prev => prev.filter(point => point.id !== pointId));
+    setIsAddingPickupPoint(true);
   };
 
   const toggleAddPickupPoint = () => {
     setIsAddingPickupPoint(!isAddingPickupPoint);
+    if (!isAddingPickupPoint) {
+      // Set initial center to current map center or user location
+      if (userLocation) {
+        setMapCenter({
+          latitude: userLocation.latitude,
+          longitude: userLocation.longitude,
+        });
+      }
+    }
   };
 
   const renderVanMarkers = () => {
@@ -139,6 +178,7 @@ export default function MapScreen() {
           longitude: point.longitude,
         }}
         title={point.title}
+        description={point.address}
         onPress={() => handlePickupPointPress(point.id)}
       >
         <View style={styles.pickupMarkerContainer}>
@@ -146,6 +186,72 @@ export default function MapScreen() {
         </View>
       </Marker>
     ));
+  };
+
+  const renderCenterPin = () => {
+    if (!isAddingPickupPoint) return null;
+
+    const pinTransform = {
+      transform: [
+        {
+          translateY: pinAnimatedValue.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, -10],
+          }),
+        },
+        {
+          scale: pinAnimatedValue.interpolate({
+            inputRange: [0, 1],
+            outputRange: [1, 1.1],
+          }),
+        },
+      ],
+    };
+
+    return (
+      <View style={styles.centerPinContainer} pointerEvents="none">
+        <Animated.View style={[styles.centerPin, pinTransform]}>
+          <View style={styles.centerPinIcon}>
+            <MapPin size={32} color="#FF6B35" />
+          </View>
+          <View style={styles.centerPinShadow} />
+        </Animated.View>
+      </View>
+    );
+  };
+
+  const renderLocationConfirmation = () => {
+    if (!isAddingPickupPoint) return null;
+
+    return (
+      <View style={styles.locationConfirmationContainer}>
+        <View style={styles.locationInfo}>
+          <Text style={styles.locationTitle}>Set Pickup Location</Text>
+          <Text style={styles.locationCoordinates}>
+            {mapCenter.latitude.toFixed(4)}, {mapCenter.longitude.toFixed(4)}
+          </Text>
+          <Text style={styles.locationInstruction}>
+            Move the map to position the pin at your desired pickup location
+          </Text>
+        </View>
+        <View style={styles.locationActions}>
+          <TouchableOpacity
+            style={styles.cancelLocationButton}
+            onPress={() => setIsAddingPickupPoint(false)}
+          >
+            <X size={20} color="#666666" />
+            <Text style={styles.cancelLocationText}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.confirmLocationButton}
+            onPress={confirmPickupLocation}
+          >
+            <Check size={20} color="#FFFFFF" />
+            <Text style={styles.confirmLocationText}>Confirm Location</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   };
 
   const renderMap = () => {
@@ -176,7 +282,8 @@ export default function MapScreen() {
         showsUserLocation
         showsMyLocationButton={false}
         initialRegion={initialRegion}
-        onPress={handleMapPress}
+        onRegionChangeStart={handleMapRegionChangeStart}
+        onRegionChangeComplete={handleMapRegionChangeComplete}
       >
         {renderVanMarkers()}
         {renderPickupPointMarkers()}
@@ -251,7 +358,7 @@ export default function MapScreen() {
           <View style={styles.actionModal}>
             <View style={styles.actionHeader}>
               <Text style={styles.actionTitle}>{selectedPoint.title}</Text>
-              <Text style={styles.actionSubtitle}>What would you like to do?</Text>
+              <Text style={styles.actionSubtitle}>{selectedPoint.address}</Text>
             </View>
             
             <View style={styles.actionButtons}>
@@ -300,39 +407,32 @@ export default function MapScreen() {
         </View>
 
         {/* Pickup Points Info Bar */}
-        {selectedVan && (
+        {selectedVan && !isAddingPickupPoint && (
           <View style={styles.infoBar}>
             <Text style={styles.infoText}>
               {pickupPoints.length} pickup point{pickupPoints.length !== 1 ? 's' : ''} added
             </Text>
-            {isAddingPickupPoint && (
-              <Text style={styles.instructionText}>Tap on map to add pickup point</Text>
-            )}
           </View>
         )}
 
         <View style={styles.mapContainer}>
           {renderMap()}
           
+          {/* Center Pin Overlay */}
+          {renderCenterPin()}
+          
+          {/* Location Confirmation Panel */}
+          {renderLocationConfirmation()}
+          
           {/* Map Controls */}
-          {Platform.OS !== 'web' && hasLocationPermission && selectedVan && (
+          {Platform.OS !== 'web' && hasLocationPermission && selectedVan && !isAddingPickupPoint && (
             <View style={styles.mapControls}>
               <Pressable style={styles.myLocationButton} onPress={handleMyLocation}>
                 <Navigation size={24} color="#3366FF" />
               </Pressable>
               
-              <Pressable 
-                style={[
-                  styles.addPickupButton,
-                  isAddingPickupPoint && styles.addPickupButtonActive
-                ]} 
-                onPress={toggleAddPickupPoint}
-              >
-                {isAddingPickupPoint ? (
-                  <X size={24} color="#FFFFFF" />
-                ) : (
-                  <Plus size={24} color="#FFFFFF" />
-                )}
+              <Pressable style={styles.addPickupButton} onPress={toggleAddPickupPoint}>
+                <Plus size={24} color="#FFFFFF" />
               </Pressable>
             </View>
           )}
@@ -388,12 +488,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333333',
   },
-  instructionText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 12,
-    color: '#FF6B35',
-    marginTop: 2,
-  },
   mapContainer: {
     flex: 1,
   },
@@ -416,6 +510,114 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     fontSize: 14,
     color: '#666666',
+  },
+  centerPinContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  centerPin: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  centerPinIcon: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 25,
+    padding: 8,
+    borderWidth: 3,
+    borderColor: '#FF6B35',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+    zIndex: 1,
+  },
+  centerPinShadow: {
+    position: 'absolute',
+    bottom: -15,
+    width: 20,
+    height: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 10,
+    transform: [{ scaleX: 1.5 }],
+  },
+  locationConfirmationContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 40,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 15,
+  },
+  locationInfo: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  locationTitle: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 18,
+    color: '#333333',
+    marginBottom: 4,
+  },
+  locationCoordinates: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 8,
+  },
+  locationInstruction: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 12,
+    color: '#888888',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  locationActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelLocationButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F5F5F5',
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  cancelLocationText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 16,
+    color: '#666666',
+  },
+  confirmLocationButton: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FF6B35',
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  confirmLocationText: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 16,
+    color: '#FFFFFF',
   },
   mapControls: {
     position: 'absolute',
@@ -448,9 +650,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 5,
-  },
-  addPickupButtonActive: {
-    backgroundColor: '#E55A2B',
   },
   vanMarkerContainer: {
     backgroundColor: '#FFFFFF',
