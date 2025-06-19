@@ -21,9 +21,8 @@ export default function MapScreen() {
   const [selectedVan, setSelectedVan] = useState<string | null>(null);
   const [showLocationPermission, setShowLocationPermission] = useState(false);
   const [showVanSelection, setShowVanSelection] = useState(false);
-  const [pickupPoints, setPickupPoints] = useState<PickupPoint[]>([]);
+  const [pickupPoint, setPickupPoint] = useState<PickupPoint | null>(null); // Changed to single pickup point
   const [isAddingPickupPoint, setIsAddingPickupPoint] = useState(false);
-  const [selectedPickupPoint, setSelectedPickupPoint] = useState<string | null>(null);
   const [showPickupPointActions, setShowPickupPointActions] = useState(false);
   const [mapCenter, setMapCenter] = useState({
     latitude: 24.8607,
@@ -107,31 +106,28 @@ export default function MapScreen() {
       id: `pickup-${Date.now()}`,
       latitude: mapCenter.latitude,
       longitude: mapCenter.longitude,
-      title: `Pickup Point ${pickupPoints.length + 1}`,
+      title: 'Pickup Point',
       address: `${mapCenter.latitude.toFixed(4)}, ${mapCenter.longitude.toFixed(4)}`,
     };
 
-    setPickupPoints(prev => [...prev, newPickupPoint]);
+    setPickupPoint(newPickupPoint); // Set single pickup point
     setIsAddingPickupPoint(false);
   };
 
-  const handlePickupPointPress = (pointId: string) => {
-    setSelectedPickupPoint(pointId);
+  const handlePickupPointPress = () => {
     setShowPickupPointActions(true);
   };
 
-  const removePickupPoint = (pointId: string) => {
-    setPickupPoints(prev => prev.filter(point => point.id !== pointId));
+  const removePickupPoint = () => {
+    setPickupPoint(null); // Remove the single pickup point
     setShowPickupPointActions(false);
-    setSelectedPickupPoint(null);
   };
 
-  const changePickupPointLocation = (pointId: string) => {
+  const changePickupPointLocation = () => {
     setShowPickupPointActions(false);
-    setSelectedPickupPoint(null);
     
-    // Remove the old pickup point and enter location selection mode
-    setPickupPoints(prev => prev.filter(point => point.id !== pointId));
+    // Remove the pickup point and enter location selection mode
+    setPickupPoint(null);
     setIsAddingPickupPoint(true);
   };
 
@@ -169,23 +165,25 @@ export default function MapScreen() {
     );
   };
 
-  const renderPickupPointMarkers = () => {
-    return pickupPoints.map((point) => (
+  const renderPickupPointMarker = () => {
+    if (!pickupPoint) return null;
+
+    return (
       <Marker
-        key={point.id}
+        key={pickupPoint.id}
         coordinate={{
-          latitude: point.latitude,
-          longitude: point.longitude,
+          latitude: pickupPoint.latitude,
+          longitude: pickupPoint.longitude,
         }}
-        title={point.title}
-        description={point.address}
-        onPress={() => handlePickupPointPress(point.id)}
+        title={pickupPoint.title}
+        description={pickupPoint.address}
+        onPress={handlePickupPointPress}
       >
         <View style={styles.pickupMarkerContainer}>
           <MapPin size={40} color="#FF6B35" />
         </View>
       </Marker>
-    ));
+    );
   };
 
   const renderCenterPin = () => {
@@ -223,15 +221,22 @@ export default function MapScreen() {
   const renderLocationConfirmation = () => {
     if (!isAddingPickupPoint) return null;
 
+    const isReplacing = pickupPoint !== null;
+
     return (
       <View style={styles.locationConfirmationContainer}>
         <View style={styles.locationInfo}>
-          <Text style={styles.locationTitle}>Set Pickup Location</Text>
+          <Text style={styles.locationTitle}>
+            {isReplacing ? 'Replace Pickup Location' : 'Set Pickup Location'}
+          </Text>
           <Text style={styles.locationCoordinates}>
             {mapCenter.latitude.toFixed(4)}, {mapCenter.longitude.toFixed(4)}
           </Text>
           <Text style={styles.locationInstruction}>
-            Move the map to position the pin at your desired pickup location
+            {isReplacing 
+              ? 'Move the map to set your new pickup location' 
+              : 'Move the map to position the pin at your desired pickup location'
+            }
           </Text>
         </View>
         <View style={styles.locationActions}>
@@ -247,7 +252,9 @@ export default function MapScreen() {
             onPress={confirmPickupLocation}
           >
             <Check size={20} color="#FFFFFF" />
-            <Text style={styles.confirmLocationText}>Confirm Location</Text>
+            <Text style={styles.confirmLocationText}>
+              {isReplacing ? 'Replace Location' : 'Confirm Location'}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -286,7 +293,7 @@ export default function MapScreen() {
         onRegionChangeComplete={handleMapRegionChangeComplete}
       >
         {renderVanMarkers()}
-        {renderPickupPointMarkers()}
+        {renderPickupPointMarker()}
       </MapView>
     );
   };
@@ -349,22 +356,21 @@ export default function MapScreen() {
   );
 
   const renderPickupPointActionsModal = () => {
-    const selectedPoint = pickupPoints.find(point => point.id === selectedPickupPoint);
-    if (!selectedPoint) return null;
+    if (!pickupPoint) return null;
 
     return (
       <Modal visible={showPickupPointActions} animationType="slide" transparent>
         <View style={styles.actionOverlay}>
           <View style={styles.actionModal}>
             <View style={styles.actionHeader}>
-              <Text style={styles.actionTitle}>{selectedPoint.title}</Text>
-              <Text style={styles.actionSubtitle}>{selectedPoint.address}</Text>
+              <Text style={styles.actionTitle}>{pickupPoint.title}</Text>
+              <Text style={styles.actionSubtitle}>{pickupPoint.address}</Text>
             </View>
             
             <View style={styles.actionButtons}>
               <TouchableOpacity 
                 style={[styles.actionButton, styles.changeLocationButton]} 
-                onPress={() => changePickupPointLocation(selectedPoint.id)}
+                onPress={changePickupPointLocation}
               >
                 <Edit3 size={20} color="#3366FF" />
                 <Text style={styles.changeLocationButtonText}>Change Location</Text>
@@ -372,7 +378,7 @@ export default function MapScreen() {
               
               <TouchableOpacity 
                 style={[styles.actionButton, styles.removeButton]} 
-                onPress={() => removePickupPoint(selectedPoint.id)}
+                onPress={removePickupPoint}
               >
                 <Trash2 size={20} color="#FF3B30" />
                 <Text style={styles.removeButtonText}>Remove Point</Text>
@@ -381,10 +387,7 @@ export default function MapScreen() {
             
             <TouchableOpacity 
               style={styles.cancelButton} 
-              onPress={() => {
-                setShowPickupPointActions(false);
-                setSelectedPickupPoint(null);
-              }}
+              onPress={() => setShowPickupPointActions(false)}
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
@@ -392,6 +395,20 @@ export default function MapScreen() {
         </View>
       </Modal>
     );
+  };
+
+  // Updated button text and icon based on whether pickup point exists
+  const getAddButtonContent = () => {
+    if (pickupPoint) {
+      return {
+        icon: <Edit3 size={20} color="#FFFFFF" />,
+        style: [styles.addPickupButton, styles.editPickupButton]
+      };
+    }
+    return {
+      icon: <Plus size={24} color="#FFFFFF" />,
+      style: styles.addPickupButton
+    };
   };
 
   return (
@@ -406,12 +423,17 @@ export default function MapScreen() {
           )}
         </View>
 
-        {/* Pickup Points Info Bar */}
+        {/* Pickup Point Info Bar */}
         {selectedVan && !isAddingPickupPoint && (
           <View style={styles.infoBar}>
             <Text style={styles.infoText}>
-              {pickupPoints.length} pickup point{pickupPoints.length !== 1 ? 's' : ''} added
+              {pickupPoint ? 'Pickup point set' : 'No pickup point set'}
             </Text>
+            {pickupPoint && (
+              <Text style={styles.infoSubText}>
+                {pickupPoint.address}
+              </Text>
+            )}
           </View>
         )}
 
@@ -431,8 +453,8 @@ export default function MapScreen() {
                 <Navigation size={24} color="#3366FF" />
               </Pressable>
               
-              <Pressable style={styles.addPickupButton} onPress={toggleAddPickupPoint}>
-                <Plus size={24} color="#FFFFFF" />
+              <Pressable style={getAddButtonContent().style} onPress={toggleAddPickupPoint}>
+                {getAddButtonContent().icon}
               </Pressable>
             </View>
           )}
@@ -488,6 +510,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333333',
   },
+  infoSubText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 12,
+    color: '#666666',
+    marginTop: 2,
+  },
   mapContainer: {
     flex: 1,
   },
@@ -527,18 +555,14 @@ const styles = StyleSheet.create({
   centerPinIcon: {
     backgroundColor: '',
     borderRadius: 25,
-    //padding: 0,
-    //borderWidth: 3,
-    //borderColor: '#c00',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 10,
     zIndex: 1,
-    height:70,
-   },
-
+    height: 70,
+  },
   centerPinShadow: {
     position: 'absolute',
     bottom: 30,
@@ -653,6 +677,9 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
+  editPickupButton: {
+    backgroundColor: '#3366FF',
+  },
   vanMarkerContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
@@ -664,11 +691,8 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   pickupMarkerContainer: {
-    //backgroundColor: '#FFFFFF',
     borderRadius: 15,
     padding: 0,
-    //borderWidth: 2,
-    //borderColor: '#FF6B35',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.2,
