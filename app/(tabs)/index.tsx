@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Modal, FlatList, Platform, Pressable, TouchableWithoutFeedback, Keyboard, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
 import { MapPin, Navigation, Truck, Check, Plus, X, Edit3, Trash2, Target } from 'lucide-react-native';
 import { useLocation } from '@/hooks/useLocation';
 
@@ -16,12 +16,27 @@ interface PickupPoint {
   address?: string;
 }
 
+// Haversine formula to calculate distance between two coordinates
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const distance = R * c; // Distance in kilometers
+  return distance * 1000; // Convert to meters
+};
+
 export default function MapScreen() {
   const { userLocation, vanLocations, hasLocationPermission, toggleLocationPermission } = useLocation();
   const [selectedVan, setSelectedVan] = useState<string | null>(null);
   const [showLocationPermission, setShowLocationPermission] = useState(false);
   const [showVanSelection, setShowVanSelection] = useState(false);
-  const [pickupPoint, setPickupPoint] = useState<PickupPoint | null>(null); // Changed to single pickup point
+  const [pickupPoint, setPickupPoint] = useState<PickupPoint | null>(null);
+  const [pickupRadius, setPickupRadius] = useState<number>(0); // Radius in meters
   const [isAddingPickupPoint, setIsAddingPickupPoint] = useState(false);
   const [showPickupPointActions, setShowPickupPointActions] = useState(false);
   const [mapCenter, setMapCenter] = useState({
@@ -51,6 +66,21 @@ export default function MapScreen() {
       }, 1000);
     }
   }, [selectedVan, vanLocations]);
+
+  // Calculate radius when pickup point or user location changes
+  useEffect(() => {
+    if (pickupPoint && userLocation) {
+      const distance = calculateDistance(
+        userLocation.latitude,
+        userLocation.longitude,
+        pickupPoint.latitude,
+        pickupPoint.longitude
+      );
+      setPickupRadius(distance);
+    } else {
+      setPickupRadius(0);
+    }
+  }, [pickupPoint, userLocation]);
 
   // Animate pin when map is moving
   useEffect(() => {
@@ -110,7 +140,7 @@ export default function MapScreen() {
       address: `${mapCenter.latitude.toFixed(4)}, ${mapCenter.longitude.toFixed(4)}`,
     };
 
-    setPickupPoint(newPickupPoint); // Set single pickup point
+    setPickupPoint(newPickupPoint);
     setIsAddingPickupPoint(false);
   };
 
@@ -119,7 +149,8 @@ export default function MapScreen() {
   };
 
   const removePickupPoint = () => {
-    setPickupPoint(null); // Remove the single pickup point
+    setPickupPoint(null);
+    setPickupRadius(0);
     setShowPickupPointActions(false);
   };
 
@@ -128,6 +159,7 @@ export default function MapScreen() {
     
     // Remove the pickup point and enter location selection mode
     setPickupPoint(null);
+    setPickupRadius(0);
     setIsAddingPickupPoint(true);
   };
 
@@ -141,6 +173,14 @@ export default function MapScreen() {
           longitude: userLocation.longitude,
         });
       }
+    }
+  };
+
+  const formatDistance = (meters: number): string => {
+    if (meters < 1000) {
+      return `${Math.round(meters)}m`;
+    } else {
+      return `${(meters / 1000).toFixed(1)}km`;
     }
   };
 
@@ -186,6 +226,23 @@ export default function MapScreen() {
     );
   };
 
+  const renderPickupRadius = () => {
+    if (!pickupPoint || !pickupRadius || Platform.OS === 'web') return null;
+
+    return (
+      <Circle
+        center={{
+          latitude: pickupPoint.latitude,
+          longitude: pickupPoint.longitude,
+        }}
+        radius={pickupRadius}
+        strokeColor="rgba(255, 107, 53, 0.5)"
+        strokeWidth={2}
+        fillColor="rgba(255, 107, 53, 0.1)"
+      />
+    );
+  };
+
   const renderCenterPin = () => {
     if (!isAddingPickupPoint) return null;
 
@@ -222,6 +279,18 @@ export default function MapScreen() {
     if (!isAddingPickupPoint) return null;
 
     const isReplacing = pickupPoint !== null;
+    
+    // Calculate preview distance if user location is available
+    let previewDistance = '';
+    if (userLocation) {
+      const distance = calculateDistance(
+        userLocation.latitude,
+        userLocation.longitude,
+        mapCenter.latitude,
+        mapCenter.longitude
+      );
+      previewDistance = formatDistance(distance);
+    }
 
     return (
       <View style={styles.locationConfirmationContainer}>
@@ -232,6 +301,11 @@ export default function MapScreen() {
           <Text style={styles.locationCoordinates}>
             {mapCenter.latitude.toFixed(4)}, {mapCenter.longitude.toFixed(4)}
           </Text>
+          {previewDistance && (
+            <Text style={styles.distancePreview}>
+              Distance from your location: {previewDistance}
+            </Text>
+          )}
           <Text style={styles.locationInstruction}>
             {isReplacing 
               ? 'Move the map to set your new pickup location' 
@@ -294,6 +368,7 @@ export default function MapScreen() {
       >
         {renderVanMarkers()}
         {renderPickupPointMarker()}
+        {renderPickupRadius()}
       </MapView>
     );
   };
@@ -365,6 +440,14 @@ export default function MapScreen() {
             <View style={styles.actionHeader}>
               <Text style={styles.actionTitle}>{pickupPoint.title}</Text>
               <Text style={styles.actionSubtitle}>{pickupPoint.address}</Text>
+              {pickupRadius > 0 && (
+                <View style={styles.distanceInfo}>
+                  <Target size={16} color="#FF6B35" />
+                  <Text style={styles.distanceText}>
+                    Radius: {formatDistance(pickupRadius)}
+                  </Text>
+                </View>
+              )}
             </View>
             
             <View style={styles.actionButtons}>
@@ -430,9 +513,16 @@ export default function MapScreen() {
               {pickupPoint ? 'Pickup point set' : 'No pickup point set'}
             </Text>
             {pickupPoint && (
-              <Text style={styles.infoSubText}>
-                {pickupPoint.address}
-              </Text>
+              <View style={styles.infoDetails}>
+                <Text style={styles.infoSubText}>
+                  {pickupPoint.address}
+                </Text>
+                {pickupRadius > 0 && (
+                  <Text style={styles.radiusInfo}>
+                    • Radius: {formatDistance(pickupRadius)}
+                  </Text>
+                )}
+              </View>
             )}
           </View>
         )}
@@ -510,10 +600,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333333',
   },
+  infoDetails: {
+    marginTop: 2,
+  },
   infoSubText: {
     fontFamily: 'Inter-Regular',
     fontSize: 12,
     color: '#666666',
+  },
+  radiusInfo: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 12,
+    color: '#FF6B35',
     marginTop: 2,
   },
   mapContainer: {
@@ -602,6 +700,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Medium',
     fontSize: 14,
     color: '#666666',
+    marginBottom: 8,
+  },
+  distancePreview: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 14,
+    color: '#FF6B35',
     marginBottom: 8,
   },
   locationInstruction: {
@@ -815,6 +919,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter-Regular',
     color: '#666666',
+    marginBottom: 8,
+  },
+  distanceInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  distanceText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+    color: '#FF6B35',
   },
   actionButtons: {
     gap: 12,
