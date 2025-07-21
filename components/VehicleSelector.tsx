@@ -1,6 +1,13 @@
-import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, FlatList } from 'react-native';
-import { Truck } from 'lucide-react-native';
+import React, { useState } from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  Modal,
+} from 'react-native';
+import { Truck, ChevronDown } from 'lucide-react-native';
 
 interface VanLocation {
   latitude: number;
@@ -20,7 +27,13 @@ interface VehicleSelectorProps {
   vanLocations: VanLocations | null;
 }
 
-export default function VehicleSelector({ selectedVan, onSelectVan, vanLocations }: VehicleSelectorProps) {
+export default function VehicleSelector({
+  selectedVan,
+  onSelectVan,
+  vanLocations,
+}: VehicleSelectorProps) {
+  const [modalVisible, setModalVisible] = useState(false);
+
   if (!vanLocations) {
     return (
       <View style={styles.noVehiclesContainer}>
@@ -30,6 +43,11 @@ export default function VehicleSelector({ selectedVan, onSelectVan, vanLocations
   }
 
   const vanIds = Object.keys(vanLocations);
+
+  const handleSelectVan = (vanId: string) => {
+    onSelectVan(vanId);
+    setModalVisible(false);
+  };
 
   const renderVehicleItem = ({ item: vanId }: { item: string }) => {
     const van = vanLocations[vanId];
@@ -42,9 +60,14 @@ export default function VehicleSelector({ selectedVan, onSelectVan, vanLocations
           styles.vehicleItem,
           isSelected && styles.vehicleItemSelected,
         ]}
-        onPress={() => onSelectVan(vanId)}
+        onPress={() => handleSelectVan(vanId)}
       >
-        <View style={[styles.vehicleIconContainer, isSelected && styles.vehicleIconContainerSelected]}>
+        <View
+          style={[
+            styles.vehicleIconContainer,
+            isSelected && styles.vehicleIconContainerSelected,
+          ]}
+        >
           <Truck size={24} color={isSelected ? '#FFFFFF' : '#3366FF'} />
         </View>
         <View style={styles.vehicleInfo}>
@@ -70,20 +93,68 @@ export default function VehicleSelector({ selectedVan, onSelectVan, vanLocations
   };
 
   return (
-    <FlatList
-      data={vanIds}
-      renderItem={renderVehicleItem}
-      keyExtractor={(item) => item}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.listContainer}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
-    />
+    <View>
+      {/* Button */}
+      <TouchableOpacity
+        style={styles.selectButton}
+        onPress={() => setModalVisible(true)}
+      >
+        <Text style={styles.selectButtonText}>
+          {selectedVan
+            ? `Selected: ${selectedVan.replace('-', ' #').toUpperCase()}`
+            : 'Select Your Van'}
+        </Text>
+        <ChevronDown size={16} color="#000" />
+      </TouchableOpacity>
+
+      {/* Modal Popup */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <FlatList
+              data={vanIds}
+              renderItem={renderVehicleItem}
+              keyExtractor={(item) => item}
+              ItemSeparatorComponent={() => <View style={styles.separator} />}
+              showsVerticalScrollIndicator={true}
+            />
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  listContainer: {
-    paddingVertical: 8,
+  selectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#EFEFEF',
+    borderRadius: 8,
+    justifyContent: 'space-between',
+  },
+  selectButtonText: {
+    fontSize: 16,
+    fontFamily: 'Inter-Medium',
+    color: '#333',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    maxHeight: '60%', // Fixed height with scroll
+    padding: 16,
   },
   noVehiclesContainer: {
     padding: 16,
