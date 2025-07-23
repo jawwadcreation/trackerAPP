@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Modal, FlatList, Platform, Pressable, TouchableWithoutFeedback, Keyboard, Animated } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Modal, FlatList, Platform, Pressable, TouchableWithoutFeedback, Keyboard, Animated, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
 import { MapPin, Navigation, Truck, Check, Plus, X, Edit3, Trash2, Target } from 'lucide-react-native';
@@ -350,26 +350,43 @@ export default function MapScreen() {
           longitudeDelta: LONGITUDE_DELTA,
         };
 
-    return Platform.OS === 'web' ? (
+    if (Platform.OS === 'web') {
+      return (
+        <View style={styles.webMapPlaceholder}>
+          <Text style={styles.webMapText}>Map view is not available on web platform</Text>
+          <Text style={styles.webMapSubText}>Please use the mobile app for full functionality</Text>
+        </View>
+      );
+    }
+
+    return (
       <View style={styles.webMapPlaceholder}>
-        <Text style={styles.webMapText}>Map view is not available on web platform</Text>
-        <Text style={styles.webMapSubText}>Please use the mobile app for full functionality</Text>
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+          showsUserLocation
+          showsMyLocationButton={false}
+          initialRegion={initialRegion}
+          mapType="standard"
+          loadingEnabled={true}
+          loadingIndicatorColor="#3366FF"
+          loadingBackgroundColor="#FFFFFF"
+          onRegionChangeStart={handleMapRegionChangeStart}
+          onRegionChangeComplete={handleMapRegionChangeComplete}
+          onMapReady={() => {
+            console.log('Map is ready');
+          }}
+          onError={(error) => {
+            console.error('Map error:', error);
+            Alert.alert('Map Error', 'Failed to load map. Please check your internet connection.');
+          }}
+        >
+          {renderVanMarkers()}
+          {renderPickupPointMarker()}
+          {renderPickupRadius()}
+        </MapView>
       </View>
-    ) : (
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        provider={PROVIDER_GOOGLE}
-        showsUserLocation
-        showsMyLocationButton={false}
-        initialRegion={initialRegion}
-        onRegionChangeStart={handleMapRegionChangeStart}
-        onRegionChangeComplete={handleMapRegionChangeComplete}
-      >
-        {renderVanMarkers()}
-        {renderPickupPointMarker()}
-        {renderPickupRadius()}
-      </MapView>
     );
   };
 
