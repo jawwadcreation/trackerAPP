@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Modal, FlatList, Platform, Pressable, TouchableWithoutFeedback, Keyboard, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
-import import { MapPin, Navigation, Truck, Check, Plus, X, CreditCard as Edit3, Trash2, Target } from 'lucide-react-native't { useLocation } from '@/hooks/useLocation';
+import { MapPin, Navigation, Truck, Check, Plus, X, CreditCard as Edit3, Trash2, Target } from 'lucide-react-native';
+import { useLocation } from '@/hooks/useLocation';
 
 const LATITUDE_DELTA = 0.01;
 const LONGITUDE_DELTA = 0.01;
