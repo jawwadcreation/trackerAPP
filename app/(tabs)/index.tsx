@@ -56,7 +56,7 @@ export default function MapScreen() {
   }, [hasLocationPermission, selectedVan]);
 
   useEffect(() => {
-    if (selectedVan && vanLocations?.[selectedVan] && mapRef.current) {
+    if (selectedVan && vanLocations?.[selectedVan] && mapRef.current && !isAddingPickupPoint) {
       const van = vanLocations[selectedVan];
       mapRef.current.animateToRegion({
         latitude: van.latitude,
@@ -65,7 +65,7 @@ export default function MapScreen() {
         longitudeDelta: LONGITUDE_DELTA,
       }, 1000);
     }
-  }, [selectedVan, vanLocations]);
+  }, [selectedVan, vanLocations, isAddingPickupPoint]);
 
   // Calculate radius when pickup point or user location changes
   useEffect(() => {
