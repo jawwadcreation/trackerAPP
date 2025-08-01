@@ -548,12 +548,12 @@ export default function MapScreen() {
               </Pressable>
               
               <View style={styles.addPickupContainer}>
-                <Pressable style={getAddButtonContent().style} onPress={toggleAddPickupPoint}>
-                  {getAddButtonContent().icon}
-                </Pressable>
                 <Text style={styles.addPickupLabel}>
                   {pickupPoint ? 'Edit Pickup' : 'Add Pickup'}
                 </Text>
+                <Pressable style={getAddButtonContent().style} onPress={toggleAddPickupPoint}>
+                  {getAddButtonContent().icon}
+                </Pressable>
               </View>
             </View>
           )}
@@ -590,7 +590,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F4FF',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   changeVanText: {
     fontFamily: 'Inter-Medium',
@@ -871,7 +873,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter-Regular',
     color: '#666666',
-    marginTop: 4,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   vanItem: {
     flexDirection: 'row',
