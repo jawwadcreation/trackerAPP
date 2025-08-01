@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Modal, FlatList, Platform, Pressable, TouchableWithoutFeedback, Keyboard, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
-import { MapPin, Navigation, Truck, Check, Plus, X, CreditCard as Edit3, Trash2, Target } from 'lucide-react-native';
+import { MapPin, Navigation, Truck, Check, LucideLandPlot, X, CreditCard as Edit3, Trash2, Target, MapPinPen  } from 'lucide-react-native';
 import { useLocation } from '@/hooks/useLocation';
 
 const LATITUDE_DELTA = 0.01;
@@ -459,7 +459,7 @@ export default function MapScreen() {
                 style={[styles.actionButton, styles.changeLocationButton]} 
                 onPress={changePickupPointLocation}
               >
-                <Edit3 size={20} color="#3366FF" />
+                <MapPinPen size={20} color="#3366FF" />
                 <Text style={styles.changeLocationButtonText}>Change Location</Text>
               </TouchableOpacity>
               
@@ -488,12 +488,12 @@ export default function MapScreen() {
   const getAddButtonContent = () => {
     if (pickupPoint) {
       return {
-        icon: <Edit3 size={20} color="#FFFFFF" />,
+        icon: <MapPinPen size={25} color="rgba(255, 255, 255, 1)" />,
         style: [styles.addPickupButton, styles.editPickupButton]
       };
     }
     return {
-      icon: <Plus size={24} color="#FFFFFF" />,
+      icon: <LucideLandPlot size={25} color="#FFFFFF" />,
       style: styles.addPickupButton
     };
   };
@@ -544,7 +544,7 @@ export default function MapScreen() {
           {Platform.OS !== 'web' && hasLocationPermission && selectedVan && !isAddingPickupPoint && (
             <View style={styles.mapControls}>
               <Pressable style={styles.myLocationButton} onPress={handleMyLocation}>
-                <Navigation size={24} color="#3366FF" />
+                <Navigation size={25} color="#FF3B30" />
               </Pressable>
               
               <Pressable style={getAddButtonContent().style} onPress={toggleAddPickupPoint}>
@@ -786,7 +786,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   editPickupButton: {
-    backgroundColor: '#3366FF',
+    backgroundColor: '#FF3B30',
   },
   vanMarkerContainer: {
     backgroundColor: '#FFFFFF',
@@ -974,3 +974,5 @@ const styles = StyleSheet.create({
     color: '#666666',
   },
 });
+
+//jd
