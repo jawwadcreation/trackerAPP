@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Modal, FlatList, Platform, Pressable, TouchableWithoutFeedback, Keyboard, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
-import { MapPin, Navigation, Truck, Check, LucideLandPlot, X, CreditCard as Edit3, Trash2, Target, MapPinPen  } from 'lucide-react-native';
+import { MapPin, Navigation, Truck, Check, LandPlot as LucideLandPlot, X, CreditCard as Edit3, Trash2, Target, MapPin as MapPinPen } from 'lucide-react-native';
 import { useLocation } from '@/hooks/useLocation';
 
 const LATITUDE_DELTA = 0.01;
@@ -792,16 +792,6 @@ const styles = StyleSheet.create({
   },
   editPickupButton: {
     backgroundColor: '#FF3B30',
-  },
-  addPickupContainer: {
-    alignItems: 'center',
-  },
-  addPickupLabel: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 12,
-    color: '#333333',
-    marginTop: 4,
-    textAlign: 'center',
   },
   vanMarkerContainer: {
     backgroundColor: '#FFFFFF',
